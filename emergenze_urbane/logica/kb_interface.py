@@ -202,6 +202,60 @@ class KnowledgeBase:
         return None
 
     # ================================================================
+    # METODI DI LETTURA DEL DOMINIO
+    # Python non duplica la conoscenza: tipi, basi, zone e meteo dei
+    # nodi vengono letti dalla KB, che resta l'unica fonte di verita'.
+    # ================================================================
+
+    def get_tipi_mezzo(self) -> list:
+        """Restituisce i tipi di mezzo definiti in tipo_veicolo/2."""
+        return [str(r["M"]) for r in self._query("tipo_veicolo(M, _)")]
+
+    def get_tipi_emergenza(self) -> list:
+        """Restituisce i tipi di emergenza definiti in tipo_emergenza/1."""
+        return [str(r["T"]) for r in self._query("tipo_emergenza(T)")]
+
+    def get_basi(self, tipo_mezzo: str) -> list:
+        """Restituisce i nodi che fanno da base per un tipo di mezzo."""
+        return [str(r["N"]) for r in self._query(f"base_mezzo({tipo_mezzo}, N)")]
+
+    def get_zone(self) -> list:
+        """Restituisce le zone della citta' (senza duplicati, in ordine)."""
+        zone = [str(r["Z"]) for r in self._query("zona(_, Z)")]
+        return list(dict.fromkeys(zone))
+
+    def get_zona(self, nodo: str) -> str:
+        """Restituisce la zona a cui appartiene un nodo."""
+        results = self._query(f"zona({nodo}, Z)")
+        return str(results[0]["Z"]) if results else None
+
+    def get_meteo_nodo(self, nodo: str) -> str:
+        """Meteo in un nodo, dedotto dalla regola meteo_nodo/2."""
+        results = self._query(f"meteo_nodo({nodo}, C)")
+        return str(results[0]["C"]) if results else "sconosciuta"
+
+    def get_archi(self) -> list:
+        """Restituisce gli archi base come tuple (nodo1, nodo2, distanza)."""
+        return [
+            (str(r["X"]), str(r["Y"]), float(r["D"]))
+            for r in self._query("arco(X, Y, D)")
+        ]
+
+    def is_emergenza_critica(self, nodo: str, gravita: str) -> bool:
+        """Verifica la regola emergenza_critica/2 (gravita' alta e meteo avverso)."""
+        return self._query_bool(f"emergenza_critica({nodo}, {gravita})")
+
+    def set_fascia_oraria(self, fascia: str):
+        """Aggiorna la fascia oraria corrente con retract/assert."""
+        list(self.prolog.query("retractall(fascia_oraria_corrente(_))"))
+        self.assert_evento(f"fascia_oraria_corrente({fascia})")
+
+    def get_fascia_oraria(self) -> str:
+        """Restituisce la fascia oraria corrente memorizzata nella KB."""
+        results = self._query("fascia_oraria_corrente(F)")
+        return str(results[0]["F"]) if results else "mattina"
+
+    # ================================================================
     # METODI DI MODIFICA DINAMICA (assert/retract)
     # La KB è dinamica: il mondo cambia durante la simulazione e la
     # KB riflette questi cambiamenti tramite assert/retract runtime.
