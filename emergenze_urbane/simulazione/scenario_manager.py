@@ -1,41 +1,35 @@
 """
 scenario_manager.py — Generazione di scenari di emergenza multipla
 
-Questo modulo genera scenari realistici per la simulazione, creando
-emergenze simultanee in posizioni diverse della città e mezzi di
-soccorso disponibili con caratteristiche diverse.
+Questo modulo genera scenari per la simulazione, creando emergenze
+simultanee in posizioni diverse della città e mezzi di soccorso
+disponibili con caratteristiche diverse.
+
+Nodi, zone, tipi di mezzo, basi operative, capacità e tipi di emergenza
+sono letti dalla KB Prolog: lo scenario è sempre coerente con la
+conoscenza del dominio e non ne duplica i fatti.
 """
 
 import random
 from ricerca.csp_allocazione import Emergenza, Mezzo
 
 
-TIPI_EMERGENZA = ["medica", "incendio", "allagamento", "incidente"]
 GRAVITA_POSSIBILI = ["bassa", "media", "alta"]
-TIPI_MEZZO = ["ambulanza", "autopompa", "autoscala"]
+FASCE_ORARIE = ["notte", "mattina", "pomeriggio", "sera"]
+CONDIZIONI_METEO = ["sereno", "pioggia", "nebbia", "pioggia_forte", "alluvione"]
+PESI_METEO = [0.35, 0.25, 0.15, 0.15, 0.10]
 
-# Nodi della mappa cittadina: devono corrispondere alla KB Prolog
-NODI_MAPPA = [
-    "ospedale", "stazione_pompieri", "piazza_centrale",
-    "incrocio_nord", "incrocio_sud", "incrocio_est", "incrocio_ovest",
-    "zona_industriale", "porto", "aeroporto", "universita",
-    "stadio", "parco", "centro_commerciale", "stazione_treni",
-]
-
-BASI_MEZZI = {
-    "ambulanza": ["ospedale", "piazza_centrale", "stazione_treni"],
-    "autopompa": ["stazione_pompieri", "zona_industriale"],
-    "autoscala": ["stazione_pompieri"],
-}
-
-CAPACITA_MEZZO = {
-    "ambulanza": 1,
-    "autopompa": 2,
-    "autoscala": 1,
-}
+# Parametri dello scenario (non conoscenza del dominio). La flotta si
+# compone prendendo i tipi in quest'ordine, ripetuto se serve: i primi
+# tre garantiscono un mezzo per tipo, poi prevalgono le ambulanze
+# (es. 6 mezzi -> 3 ambulanze, 2 autopompe, 1 autoscala).
+ORDINE_FLOTTA = ["ambulanza", "autopompa", "autoscala",
+                 "ambulanza", "autopompa", "ambulanza", "ambulanza", "autoscala"]
+SIGLE_MEZZO = {"ambulanza": "AMB", "autopompa": "POM", "autoscala": "SCA"}
 
 
 def genera_scenario(
+    kb,
     n_emergenze: int = 4,
     n_mezzi: int = 5,
     random_state: int = None,
@@ -45,81 +39,52 @@ def genera_scenario(
     simultanee e M mezzi disponibili.
 
     Args:
+        kb: KnowledgeBase da cui leggere nodi, mezzi e tipi di emergenza.
         n_emergenze: numero di emergenze da generare.
         n_mezzi: numero di mezzi disponibili.
         random_state: seed per la riproducibilità. Se None, casuale.
 
     Returns:
-        Tupla (lista_emergenze, lista_mezzi) con le emergenze
-        e i mezzi generati per la simulazione.
+        Tupla (lista_emergenze, lista_mezzi).
     """
-    if random_state is not None:
-        random.seed(random_state)
+    rng = random.Random(random_state)
+
+    nodi_mappa = kb.get_tutti_nodi()
+    tipi_emergenza = kb.get_tipi_emergenza()
+    tipi_mezzo = kb.get_tipi_mezzo()
 
     emergenze = []
-    nodi_usati_emergenze = set()
-
+    nodi_usati = set()
     for i in range(n_emergenze):
-        nodi_disponibili = [n for n in NODI_MAPPA if n not in nodi_usati_emergenze]
-        if not nodi_disponibili:
-            nodi_disponibili = NODI_MAPPA
+        nodi_disponibili = [n for n in nodi_mappa if n not in nodi_usati] or nodi_mappa
+        posizione = rng.choice(nodi_disponibili)
+        nodi_usati.add(posizione)
 
-        posizione = random.choice(nodi_disponibili)
-        nodi_usati_emergenze.add(posizione)
-
-        tipo = random.choice(TIPI_EMERGENZA)
-        gravita = random.choices(
-            GRAVITA_POSSIBILI,
-            weights=[0.3, 0.4, 0.3],
-            k=1
-        )[0]
-
-        emergenza = Emergenza(
+        emergenze.append(Emergenza(
             id=f"EM_{i + 1:02d}",
             posizione=posizione,
-            tipo=tipo,
-            gravita=gravita,
-        )
-        emergenze.append(emergenza)
+            tipo=rng.choice(tipi_emergenza),
+            gravita=rng.choices(GRAVITA_POSSIBILI, weights=[0.3, 0.4, 0.3], k=1)[0],
+        ))
+
+    ordine = [t for t in ORDINE_FLOTTA if t in tipi_mezzo] or tipi_mezzo
+    tipi_da_generare = [ordine[i % len(ordine)] for i in range(n_mezzi)]
+    rng.shuffle(tipi_da_generare)
 
     mezzi = []
-
-    tipi_da_generare = []
-    for i in range(n_mezzi):
-        if i < n_mezzi // 2:
-            tipi_da_generare.append("ambulanza")
-        elif i < n_mezzi * 3 // 4:
-            tipi_da_generare.append("autopompa")
-        else:
-            tipi_da_generare.append("autoscala")
-
-    if n_mezzi >= 3:
-        tipi_da_generare[0] = "ambulanza"
-        tipi_da_generare[1] = "autopompa"
-        tipi_da_generare[2] = "autoscala"
-
-    random.shuffle(tipi_da_generare)
-
-    for i in range(n_mezzi):
-        tipo_mezzo = tipi_da_generare[i] if i < len(tipi_da_generare) else random.choice(TIPI_MEZZO)
-
-        basi = BASI_MEZZI.get(tipo_mezzo, NODI_MAPPA)
-        posizione = random.choice(basi)
-
-        mezzo = Mezzo(
-            id=f"MZ_{i + 1:02d}_{tipo_mezzo[:3].upper()}",
-            posizione=posizione,
+    for i, tipo_mezzo in enumerate(tipi_da_generare):
+        basi = kb.get_basi(tipo_mezzo) or nodi_mappa
+        mezzi.append(Mezzo(
+            id=f"MZ_{i + 1:02d}_{SIGLE_MEZZO.get(tipo_mezzo, tipo_mezzo[:3].upper())}",
+            posizione=rng.choice(basi),
             tipo=tipo_mezzo,
-            capacita=CAPACITA_MEZZO.get(tipo_mezzo, 1),
-        )
-        mezzi.append(mezzo)
+            capacita=kb.get_capacita(tipo_mezzo),
+        ))
 
     return emergenze, mezzi
 
 
-def genera_condizioni_meteo_avverse(
-    random_state: int = None,
-) -> dict:
+def genera_condizioni_meteo_avverse(zone: list, random_state: int = None) -> dict:
     """
     Genera condizioni meteo casuali per le zone della città,
     incluse condizioni avverse che alterano la mappa.
@@ -127,28 +92,33 @@ def genera_condizioni_meteo_avverse(
     Returns:
         Dizionario {zona: condizione_meteo}.
     """
-    if random_state is not None:
-        random.seed(random_state)
+    rng = random.Random(random_state)
+    return {
+        zona: rng.choices(CONDIZIONI_METEO, weights=PESI_METEO, k=1)[0]
+        for zona in zone
+    }
 
-    zone = ["zona_nord", "zona_centro", "zona_sud", "zona_est"]
-    condizioni = ["sereno", "pioggia", "nebbia", "pioggia_forte", "alluvione"]
-    pesi = [0.35, 0.25, 0.15, 0.15, 0.10]
 
-    meteo = {}
-    for zona in zone:
-        meteo[zona] = random.choices(condizioni, weights=pesi, k=1)[0]
+def genera_fascia_oraria(random_state: int = None) -> str:
+    """Estrae la fascia oraria dello scenario."""
+    return random.Random(random_state).choice(FASCE_ORARIE)
 
-    return meteo
+
+def applica_scenario_alla_kb(kb, meteo: dict, fascia_oraria: str):
+    """Aggiorna la KB con meteo e fascia oraria dello scenario (assert/retract)."""
+    for zona, condizione in meteo.items():
+        kb.cambia_meteo(zona, condizione)
+    kb.set_fascia_oraria(fascia_oraria)
 
 
 def stampa_scenario(emergenze: list, mezzi: list):
     """Stampa un riepilogo leggibile dello scenario generato."""
     print("\n  === SCENARIO DI EMERGENZA ===")
     print(f"\n  Emergenze attive: {len(emergenze)}")
-    print(f"  {'ID':<10} {'Posizione':<25} {'Tipo':<15} {'Gravità':<10}")
-    print("  " + "-" * 60)
+    print(f"  {'ID':<10} {'Posizione':<25} {'Tipo':<18} {'Gravità':<10}")
+    print("  " + "-" * 63)
     for em in emergenze:
-        print(f"  {em.id:<10} {em.posizione:<25} {em.tipo:<15} {em.gravita:<10}")
+        print(f"  {em.id:<10} {em.posizione:<25} {em.tipo:<18} {em.gravita:<10}")
 
     print(f"\n  Mezzi disponibili: {len(mezzi)}")
     print(f"  {'ID':<25} {'Posizione':<25} {'Tipo':<15} {'Capacità':<10}")
