@@ -48,16 +48,29 @@ class ProblemaCSP:
     - Vincoli:
       1. Compatibilità mezzo/emergenza (hard)
       2. Capacità del mezzo non superata (hard)
-      3. Distanza massima accettabile (soft, penalizzata)
+      3. Emergenze di gravità alta obbligatoriamente coperte (hard)
+      4. Distanza massima accettabile (soft, penalizzata)
+
+    Nella ricerca locale i vincoli hard sono rilassati in penalità
+    (peso_violazione_hard per ogni violazione); il risolutore esatto in
+    csp_backtracking.py li tratta invece come vincoli veri.
     """
     emergenze: list
     mezzi: list
     matrice_costi: dict
     compatibilita: dict
     distanza_massima: float = 30.0
+    # Se False le emergenze gravi possono restare scoperte (vincolo
+    # rilassato quando le risorse non bastano a coprirle tutte)
+    obbligo_gravita_alta: bool = True
 
     peso_distanza: float = 1.0
-    peso_violazione_hard: float = 100.0
+    # La penalità di una violazione hard deve superare qualsiasi costo
+    # ammissibile (la peggiore non assegnazione vale 50 * 3 = 150, una
+    # distanza tipica 20-60): con 100 la ricerca locale trovava
+    # conveniente violare un vincolo invece di lasciare un'emergenza
+    # media non assegnata (entrambe costavano 100).
+    peso_violazione_hard: float = 1000.0
     peso_non_assegnato: float = 50.0
     peso_gravita: float = field(default_factory=lambda: {
         "alta": 3.0, "media": 2.0, "bassa": 1.0
@@ -108,6 +121,9 @@ def funzione_obiettivo(problema: ProblemaCSP, soluzione: dict) -> float:
 
         if mezzo_id == "non_assegnato":
             costo_totale += problema.peso_non_assegnato * peso_grav
+            # Vincolo hard: le emergenze gravi devono avere un mezzo
+            if emergenza.gravita == "alta" and problema.obbligo_gravita_alta:
+                violazioni += 1
             continue
 
         mezzo = mezzi_map.get(mezzo_id)
@@ -143,6 +159,44 @@ def funzione_obiettivo(problema: ProblemaCSP, soluzione: dict) -> float:
     costo_totale += violazioni * problema.peso_violazione_hard
 
     return costo_totale
+
+
+def contributo(problema: ProblemaCSP, emergenza: Emergenza, mezzo_id: str) -> float:
+    """
+    Contributo di un singolo assegnamento ammissibile alla funzione
+    obiettivo (distanza pesata per gravità + penalità soft, oppure
+    penalità di non assegnazione). Usato dal branch and bound.
+    """
+    peso_grav = problema.peso_gravita.get(emergenza.gravita, 1.0)
+    if mezzo_id == "non_assegnato":
+        return problema.peso_non_assegnato * peso_grav
+    costo = problema.matrice_costi[(mezzo_id, emergenza.id)]
+    valore = costo * peso_grav
+    if costo > problema.distanza_massima:
+        valore += (costo - problema.distanza_massima) * peso_grav * 0.5
+    return valore
+
+
+def conta_violazioni(problema: ProblemaCSP, soluzione: dict) -> int:
+    """Numero di vincoli hard violati da una soluzione (0 = ammissibile)."""
+    mezzi_map = {m.id: m for m in problema.mezzi}
+    emergenze_map = {e.id: e for e in problema.emergenze}
+    violazioni = 0
+    uso = {}
+    for em_id, mezzo_id in soluzione.items():
+        em = emergenze_map[em_id]
+        if mezzo_id == "non_assegnato":
+            violazioni += em.gravita == "alta" and problema.obbligo_gravita_alta
+            continue
+        uso[mezzo_id] = uso.get(mezzo_id, 0) + 1
+        mezzo = mezzi_map[mezzo_id]
+        if not problema.compatibilita.get((mezzo.tipo, em.tipo), False):
+            violazioni += 1
+        if problema.matrice_costi.get((mezzo_id, em_id), float("inf")) == float("inf"):
+            violazioni += 1
+    for mezzo_id, n in uso.items():
+        violazioni += max(0, n - mezzi_map[mezzo_id].capacita)
+    return violazioni
 
 
 def genera_vicino(problema: ProblemaCSP, soluzione: dict) -> dict:
@@ -190,6 +244,9 @@ def risolvi_random_restart(
     Returns:
         Tupla (migliore_soluzione, migliore_costo).
     """
+    if not problema.emergenze:
+        return {}, 0.0
+
     migliore_soluzione = None
     migliore_costo = float("inf")
 
@@ -258,6 +315,9 @@ def risolvi_simulated_annealing(
     Returns:
         Tupla (migliore_soluzione, migliore_costo).
     """
+    if not problema.emergenze:
+        return {}, 0.0
+
     soluzione_corrente = genera_soluzione_casuale(problema)
     costo_corrente = funzione_obiettivo(problema, soluzione_corrente)
 
@@ -310,7 +370,6 @@ def formatta_soluzione(
         Stringa con il report dell'allocazione.
     """
     mezzi_map = {m.id: m for m in problema.mezzi}
-    emergenze_map = {e.id: e for e in problema.emergenze}
 
     linee = []
     linee.append(f"  Costo obiettivo: {costo:.2f}")
@@ -319,7 +378,6 @@ def formatta_soluzione(
     linee.append("  " + "-" * 70)
 
     for em_id, mezzo_id in soluzione.items():
-        emergenza = emergenze_map[em_id]
         if mezzo_id == "non_assegnato":
             linee.append(f"  {em_id:<20} {'NON ASSEGNATO':<20} "
                          f"{'-':<15} {'-':<15}")

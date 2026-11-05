@@ -3,9 +3,15 @@ astar_routing.py — Algoritmo A* per il routing dei veicoli di soccorso
 
 Ricerca informata: A* combina il costo del cammino già percorso (g)
 con una stima euristica del costo rimanente (h) per trovare il
-percorso ottimo. L'euristica usata è la distanza euclidea (ammissibile:
-non sovrastima mai il costo reale), garantendo l'ottimalità della
-soluzione.
+percorso ottimo. L'euristica usata è la distanza euclidea: è
+ammissibile perché ogni arco della KB ha distanza >= della distanza
+euclidea tra i suoi estremi e i fattori meteo/allagamento sono >= 1,
+quindi h(n) non sovrastima mai il costo reale. Per la disuguaglianza
+triangolare è anche consistente (monotona), per cui un nodo estratto
+dalla frontiera non deve mai essere riaperto.
+
+Con usa_euristica=False la stessa procedura diventa la ricerca a costo
+minimo (lowest-cost-first, h = 0), usata come termine di confronto.
 
 Il costo e la transitabilità di ogni arco vengono chiesti dinamicamente
 alla KB Prolog ad ogni step di espansione, così il routing riflette lo
@@ -72,6 +78,21 @@ def trova_percorso(
     tipo_veicolo: str
 ) -> tuple:
     """
+    Interfaccia principale: restituisce (percorso, costo_totale).
+    Vedi ricerca_percorso per i dettagli dell'algoritmo.
+    """
+    risultato = ricerca_percorso(kb, partenza, destinazione, tipo_veicolo)
+    return (risultato["percorso"], risultato["costo"])
+
+
+def ricerca_percorso(
+    kb: KnowledgeBase,
+    partenza: str,
+    destinazione: str,
+    tipo_veicolo: str,
+    usa_euristica: bool = True,
+) -> dict:
+    """
     Trova il percorso ottimo da partenza a destinazione per il
     tipo di veicolo specificato usando l'algoritmo A*.
 
@@ -86,23 +107,30 @@ def trova_percorso(
         destinazione: nome del nodo di destinazione.
         tipo_veicolo: tipo di veicolo (es. 'ambulanza', 'autopompa').
 
+        usa_euristica: se False, h = 0 (ricerca a costo minimo).
+
     Returns:
-        Tupla (percorso, costo_totale) dove percorso è una lista di
-        nomi di nodi dal partenza al destinazione. Se non esiste un
-        percorso, restituisce (None, float('inf')).
+        Dizionario con 'percorso' (lista di nodi, None se non esiste),
+        'costo' (float, inf se non esiste) e 'nodi_espansi' (int).
     """
+    def esito(percorso, costo, espansi):
+        return {"percorso": percorso, "costo": costo, "nodi_espansi": espansi}
+
     if partenza == destinazione:
-        return ([partenza], 0.0)
+        return esito([partenza], 0.0, 0)
 
     nodi = kb.get_tutti_nodi()
     if partenza not in nodi:
         print(f"  [A*] ERRORE: nodo partenza '{partenza}' non trovato nella mappa")
-        return (None, float("inf"))
+        return esito(None, float("inf"), 0)
     if destinazione not in nodi:
         print(f"  [A*] ERRORE: nodo destinazione '{destinazione}' non trovato nella mappa")
-        return (None, float("inf"))
+        return esito(None, float("inf"), 0)
 
-    h_start = _euristica(kb, partenza, destinazione)
+    def h(nodo):
+        return _euristica(kb, nodo, destinazione) if usa_euristica else 0.0
+
+    h_start = h(partenza)
     nodo_start = NodoAStar(partenza, g=0.0, h=h_start)
 
     # Coda a priorità (open set): min-heap su f = g + h
@@ -123,7 +151,7 @@ def trova_percorso(
 
         if corrente.nome == destinazione:
             percorso = _ricostruisci_percorso(corrente)
-            return (percorso, corrente.g)
+            return esito(percorso, corrente.g, nodi_espansi)
 
         closed_set.add(corrente.nome)
 
@@ -139,13 +167,12 @@ def trova_percorso(
 
             if g_tentativo < g_score.get(vicino_nome, float("inf")):
                 g_score[vicino_nome] = g_tentativo
-                h = _euristica(kb, vicino_nome, destinazione)
                 nodo_vicino = NodoAStar(
-                    vicino_nome, g=g_tentativo, h=h, genitore=corrente
+                    vicino_nome, g=g_tentativo, h=h(vicino_nome), genitore=corrente
                 )
                 heapq.heappush(open_set, nodo_vicino)
 
-    return (None, float("inf"))
+    return esito(None, float("inf"), nodi_espansi)
 
 
 def calcola_matrice_distanze(
