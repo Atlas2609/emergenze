@@ -1,0 +1,361 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xml:base="http://www.uniba.it/icon/emergenze.owl"
+         xmlns="http://www.uniba.it/icon/emergenze.owl#">
+
+<owl:Ontology rdf:about="http://www.uniba.it/icon/emergenze.owl"/>
+
+<owl:ObjectProperty rdf:about="#situatoIn">
+  <rdfs:domain rdf:resource="#Nodo"/>
+  <rdfs:range rdf:resource="#Zona"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#avvieneIn">
+  <rdfs:domain rdf:resource="#Emergenza"/>
+  <rdfs:range rdf:resource="#Nodo"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#puoGestire">
+  <rdfs:domain rdf:resource="#Mezzo"/>
+  <rdfs:range rdf:resource="#Emergenza"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#haBase">
+  <rdfs:domain rdf:resource="#Mezzo"/>
+  <rdfs:range rdf:resource="#Nodo"/>
+</owl:ObjectProperty>
+
+<owl:Class rdf:about="#Luogo">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Nodo">
+  <rdfs:subClassOf rdf:resource="#Luogo"/>
+  <owl:disjointWith rdf:resource="#Zona"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Zona">
+  <rdfs:subClassOf rdf:resource="#Luogo"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Emergenza">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#EmergenzaMedica">
+  <rdfs:subClassOf rdf:resource="#Emergenza"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Incendio">
+  <rdfs:subClassOf rdf:resource="#Emergenza"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Allagamento">
+  <rdfs:subClassOf rdf:resource="#Emergenza"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Incidente">
+  <rdfs:subClassOf rdf:resource="#Emergenza"/>
+</owl:Class>
+
+<owl:Class rdf:about="#SoccorsoInAltezza">
+  <rdfs:subClassOf rdf:resource="#Emergenza"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Mezzo">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoLeggero">
+  <rdfs:subClassOf rdf:resource="#Mezzo"/>
+  <owl:disjointWith rdf:resource="#MezzoPesante"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoPesante">
+  <rdfs:subClassOf rdf:resource="#Mezzo"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Ambulanza">
+  <rdfs:subClassOf rdf:resource="#MezzoLeggero"/>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#puoGestire"/>
+      <owl:someValuesFrom rdf:resource="#EmergenzaMedica"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#puoGestire"/>
+      <owl:someValuesFrom rdf:resource="#Incidente"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+</owl:Class>
+
+<owl:Class rdf:about="#Autopompa">
+  <rdfs:subClassOf rdf:resource="#MezzoPesante"/>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#puoGestire"/>
+      <owl:someValuesFrom rdf:resource="#Incendio"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#puoGestire"/>
+      <owl:someValuesFrom rdf:resource="#Allagamento"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#puoGestire"/>
+      <owl:someValuesFrom rdf:resource="#Incidente"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+</owl:Class>
+
+<owl:Class rdf:about="#Autoscala">
+  <rdfs:subClassOf rdf:resource="#MezzoPesante"/>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#puoGestire"/>
+      <owl:someValuesFrom rdf:resource="#Incendio"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+  <rdfs:subClassOf>
+    <owl:Restriction>
+      <owl:onProperty rdf:resource="#puoGestire"/>
+      <owl:someValuesFrom rdf:resource="#SoccorsoInAltezza"/>
+    </owl:Restriction>
+  </rdfs:subClassOf>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoAntincendio">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#Incendio"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoSoccorsoSanitario">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#EmergenzaMedica"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoPolivalente">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#Incendio"/>
+        </owl:Restriction>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#Incidente"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoPerEmergenzaMedica">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#EmergenzaMedica"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoPerIncendio">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#Incendio"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoPerAllagamento">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#Allagamento"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoPerIncidente">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#Incidente"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#MezzoPerSoccorsoInAltezza">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Mezzo"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#puoGestire"/>
+          <owl:someValuesFrom rdf:resource="#SoccorsoInAltezza"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:NamedIndividual rdf:about="#zona_nord">
+  <rdf:type rdf:resource="#Zona"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#zona_centro">
+  <rdf:type rdf:resource="#Zona"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#zona_sud">
+  <rdf:type rdf:resource="#Zona"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#zona_est">
+  <rdf:type rdf:resource="#Zona"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#ospedale">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_nord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#stazione_pompieri">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_est"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#piazza_centrale">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_centro"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#incrocio_nord">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_nord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#incrocio_sud">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_sud"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#incrocio_est">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_centro"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#incrocio_ovest">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_centro"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#zona_industriale">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_sud"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#porto">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_sud"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#aeroporto">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_nord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#universita">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_centro"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#stadio">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_sud"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#parco">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_nord"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#centro_commerciale">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_est"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#stazione_treni">
+  <rdf:type rdf:resource="#Nodo"/>
+  <situatoIn rdf:resource="#zona_sud"/>
+</owl:NamedIndividual>
+
+<owl:AllDisjointClasses>
+  <owl:members rdf:parseType="Collection">
+    <rdf:Description rdf:about="#EmergenzaMedica"/>
+    <rdf:Description rdf:about="#Incendio"/>
+    <rdf:Description rdf:about="#Allagamento"/>
+    <rdf:Description rdf:about="#Incidente"/>
+    <rdf:Description rdf:about="#SoccorsoInAltezza"/>
+  </owl:members>
+</owl:AllDisjointClasses>
+
+
+</rdf:RDF>
