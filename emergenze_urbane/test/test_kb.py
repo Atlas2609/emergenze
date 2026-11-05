@@ -17,7 +17,7 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_DIR not in sys.path:
     sys.path.insert(0, PROJECT_DIR)
 
-from logica.kb_interface import KnowledgeBase, PrologQueryError
+from logica.kb_interface import KnowledgeBase
 
 
 class TestKnowledgeBase(unittest.TestCase):
@@ -146,6 +146,50 @@ class TestKnowledgeBase(unittest.TestCase):
         # Ripristina
         self.kb.cambia_meteo("zona_nord", "sereno")
         self.assertFalse(self.kb.is_strada_allagata("ospedale"))
+
+    def test_distanze_compatibili_con_euristica(self):
+        """
+        Ogni arco ha distanza >= della distanza euclidea tra i suoi
+        estremi: è la condizione che rende ammissibile l'euristica di A*.
+        """
+        for n1, n2, distanza in self.kb.get_archi():
+            self.assertGreaterEqual(
+                distanza, self.kb.distanza_euclidea(n1, n2) - 1e-9,
+                f"Arco {n1}-{n2} più corto della distanza in linea d'aria"
+            )
+
+    def test_alluvione_rallenta_piu_della_pioggia(self):
+        """L'alluvione deve avere un fattore di costo maggiore della pioggia."""
+        self.kb.cambia_meteo("zona_nord", "pioggia")
+        costo_pioggia = self.kb.costo_arco("ospedale", "parco", "autopompa")
+        self.kb.cambia_meteo("zona_nord", "alluvione")
+        costo_alluvione = self.kb.costo_arco("ospedale", "parco", "autopompa")
+        self.kb.cambia_meteo("zona_nord", "sereno")
+        self.assertGreater(costo_alluvione, costo_pioggia)
+
+    def test_meteo_nodo_dedotto_dalla_zona(self):
+        self.kb.cambia_meteo("zona_sud", "nebbia")
+        self.assertEqual(self.kb.get_meteo_nodo("porto"), "nebbia")
+        self.kb.cambia_meteo("zona_sud", "sereno")
+
+    def test_fascia_oraria_dinamica(self):
+        self.kb.set_fascia_oraria("notte")
+        self.assertEqual(self.kb.get_fascia_oraria(), "notte")
+        self.kb.set_fascia_oraria("mattina")
+        self.assertEqual(self.kb.get_fascia_oraria(), "mattina")
+
+    def test_dominio_letto_dalla_kb(self):
+        self.assertIn("soccorso_altezza", self.kb.get_tipi_emergenza())
+        self.assertEqual(set(self.kb.get_tipi_mezzo()), {"ambulanza", "autopompa", "autoscala"})
+        self.assertIn("ospedale", self.kb.get_basi("ambulanza"))
+        self.assertEqual(len(self.kb.get_zone()), 4)
+
+    def test_emergenza_critica(self):
+        self.kb.cambia_meteo("zona_sud", "alluvione")
+        self.assertTrue(self.kb.is_emergenza_critica("porto", "alta"))
+        self.assertFalse(self.kb.is_emergenza_critica("porto", "bassa"))
+        self.kb.cambia_meteo("zona_sud", "sereno")
+        self.assertFalse(self.kb.is_emergenza_critica("porto", "alta"))
 
 
 if __name__ == "__main__":

@@ -16,11 +16,12 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_DIR not in sys.path:
     sys.path.insert(0, PROJECT_DIR)
 
+from ricerca.csp_backtracking import risolvi_branch_and_bound, domini_iniziali, ac3
 from ricerca.csp_allocazione import (
     Emergenza, Mezzo, ProblemaCSP,
     genera_soluzione_casuale, funzione_obiettivo,
     genera_vicino, risolvi_random_restart,
-    risolvi_simulated_annealing, formatta_soluzione,
+    risolvi_simulated_annealing, formatta_soluzione, conta_violazioni,
 )
 
 
@@ -165,6 +166,53 @@ class TestCSP(unittest.TestCase):
         output = formatta_soluzione(self.problema, sol, 42.0)
         self.assertIn("42.00", output)
         self.assertIn("NON ASSEGNATO", output)
+
+    def test_branch_and_bound_ottimo(self):
+        """Il branch and bound coincide con la ricerca esaustiva."""
+        import itertools
+        sol, costo, _ = risolvi_branch_and_bound(self.problema)
+        valori = [m.id for m in self.problema.mezzi] + ["non_assegnato"]
+        ids = [e.id for e in self.problema.emergenze]
+        migliore = min(
+            funzione_obiettivo(self.problema, dict(zip(ids, a)))
+            for a in itertools.product(valori, repeat=len(ids))
+            if conta_violazioni(self.problema, dict(zip(ids, a))) == 0
+        )
+        self.assertAlmostEqual(costo, migliore)
+        self.assertEqual(conta_violazioni(self.problema, sol), 0)
+
+    def test_domini_consistenza_di_nodo(self):
+        """Ambulanza esclusa dagli incendi; emergenze gravi sempre assegnate."""
+        domini = domini_iniziali(self.problema)
+        self.assertEqual(domini["EM_01"], ["MZ_01"])  # medica, gravità alta
+        self.assertNotIn("MZ_01", domini["EM_02"])    # incendio
+        self.assertIn("non_assegnato", domini["EM_03"])
+
+    def test_ac3_rileva_insoddisfacibilita(self):
+        """Due emergenze gravi e una sola ambulanza: AC-3 svuota un dominio."""
+        domini = {"A": ["MZ_01"], "B": ["MZ_01"]}
+        consistente, _ = ac3(domini, {"MZ_01": 1})
+        self.assertFalse(consistente)
+
+    def test_ac3_capacita_due(self):
+        """Un mezzo di capacità 2 può servire due emergenze."""
+        domini = {"A": ["MZ_02"], "B": ["MZ_02"]}
+        consistente, _ = ac3(domini, {"MZ_02": 2})
+        self.assertTrue(consistente)
+
+    def test_violazione_costa_piu_di_non_assegnare(self):
+        """Lasciare non assegnata un'emergenza media conviene più che violare un vincolo."""
+        sol_non_assegnata = {"EM_01": "MZ_01", "EM_02": "non_assegnato", "EM_03": "MZ_02"}
+        sol_incompatibile = {"EM_01": "MZ_01", "EM_02": "MZ_01", "EM_03": "MZ_02"}
+        self.assertLess(funzione_obiettivo(self.problema, sol_non_assegnata),
+                        funzione_obiettivo(self.problema, sol_incompatibile))
+
+    def test_problema_senza_emergenze(self):
+        vuoto = ProblemaCSP(emergenze=[], mezzi=self.problema.mezzi,
+                            matrice_costi={}, compatibilita={})
+        self.assertEqual(risolvi_random_restart(vuoto), ({}, 0.0))
+        self.assertEqual(risolvi_simulated_annealing(vuoto), ({}, 0.0))
+        self.assertEqual(risolvi_branch_and_bound(vuoto)[:2], ({}, 0.0))
 
 
 if __name__ == "__main__":

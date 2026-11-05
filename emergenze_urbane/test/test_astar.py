@@ -17,7 +17,7 @@ if PROJECT_DIR not in sys.path:
     sys.path.insert(0, PROJECT_DIR)
 
 from logica.kb_interface import KnowledgeBase
-from ricerca.astar_routing import trova_percorso, calcola_matrice_distanze
+from ricerca.astar_routing import trova_percorso, calcola_matrice_distanze, ricerca_percorso
 
 
 class TestAStarRouting(unittest.TestCase):
@@ -115,6 +115,21 @@ class TestAStarRouting(unittest.TestCase):
                     percorso[i + 1], vicini,
                     f"Arco mancante: {percorso[i]} → {percorso[i+1]}"
                 )
+
+    def test_astar_ottimo_come_costo_minimo(self):
+        """
+        Con euristica ammissibile A* trova lo stesso costo della ricerca a
+        costo minimo (h = 0), espandendo al più gli stessi nodi.
+        """
+        nodi = self.kb.get_tutti_nodi()
+        for partenza in nodi[:5]:
+            for arrivo in nodi:
+                if partenza == arrivo:
+                    continue
+                a = ricerca_percorso(self.kb, partenza, arrivo, "ambulanza", True)
+                u = ricerca_percorso(self.kb, partenza, arrivo, "ambulanza", False)
+                self.assertAlmostEqual(a["costo"], u["costo"], places=9)
+                self.assertLessEqual(a["nodi_espansi"], u["nodi_espansi"])
 
 
 if __name__ == "__main__":
