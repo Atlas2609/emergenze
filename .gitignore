@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+emergenze_urbane/output/
+emergenze_urbane/test/output_test/
+~$*.docx
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
